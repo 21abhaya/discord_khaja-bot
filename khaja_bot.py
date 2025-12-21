@@ -49,7 +49,7 @@ class MyClient(discord.Client):
         print(f'Logged on as {self.user}!')
 
     async def on_message(self, message):
-        if message.content.startswith("khajatime") and message.content.endswith("!"):
+        if message.content.startswith("khajatime"):
             content = message.content
             content_after_split = content.split()
             khaja_today = content_after_split[1]
