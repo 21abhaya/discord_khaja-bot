@@ -15,7 +15,7 @@ intents.message_content = True
 def khaja_poll(khaja_item: str):
     
     poll = discord.Poll(
-        question=f"Hey guys, we're having {khaja_item} today, please vote below how may you want it:", 
+        question=f"Today, we're having {khaja_item} So please vote below how you may want it:", 
         duration=timedelta(hours=1),
     )
     
@@ -49,7 +49,7 @@ class MyClient(discord.Client):
         print(f'Logged on as {self.user}!')
 
     async def on_message(self, message):
-        if message.content.startswith("khajatime"):
+        if message.content.startswith("khajatime") and message.content.endswith("!"):
             content = message.content
             content_after_split = content.split()
             khaja_today = content_after_split[1]
