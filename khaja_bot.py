@@ -11,7 +11,7 @@ token = os.getenv('DISCORD_TOKEN')
 intents = discord.Intents.default()
 intents.message_content = True
 
-
+#TODO: Add a timer to end this poll after 7 minutes and send back a summary
 def khaja_poll(khaja_item: str):
     
     poll = discord.Poll(
