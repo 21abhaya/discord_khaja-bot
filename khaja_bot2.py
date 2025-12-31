@@ -31,7 +31,7 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
         self.view.votes[interaction.user.id] = self.custom_item.value
         await interaction.response.edit_message(embed=self.view.create_embed(), view=self.view)
         
-        
+            
         
 class KhajaTimeView(discord.ui.View):
     
