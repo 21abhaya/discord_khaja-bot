@@ -42,13 +42,20 @@ class KhajaTimeView(discord.ui.View):
     def create_embed(self):
         embed = discord.Embed(title="Today's Khaja Poll", color=discord.Color.blue())
         
-        full = [f"<@{u}>" for u, choice in self.votes.items() if choice == "Full"]
-        half = [f"<@{u}>" for u, choice in self.votes.items() if choice == "Half"]
-        others = [f"<@{u}> ({choice})" for u, choice in self.votes.items() if choice not in ["Full", "Half"]]
+        full_count = 0
+        half_count = 0
+        others_count = 0
+        for u, choice in self.votes.items(): 
+            if choice not in ["Full", "Half"]:
+                others_count += 1
+            if choice == "Full":
+                full_count += 1
+            if choice == "Half":
+                half_count += 1
 
-        embed.add_field(name="Full", value="\n".join(full) if full else "None", inline=True)
-        embed.add_field(name="Half", value="\n".join(half) if half else "None", inline=True)
-        embed.add_field(name="Others", value="\n".join(others) if others else "None", inline=False)
+        embed.add_field(name="Full", value=full_count if full_count else "None", inline=True)
+        embed.add_field(name="Half", value=half_count if half_count else "None", inline=True)
+        embed.add_field(name="Something else", value=others_count if others_count else "None", inline=True)
         return embed
     
     @discord.ui.button(label="Half", style=discord.ButtonStyle.primary)
@@ -66,7 +73,7 @@ class KhajaTimeView(discord.ui.View):
         await interaction.response.send_modal(ModalForSomethingElse(self))
         
     
-@bot.command(name='khaja-momo')
+@bot.command(name='khaja')
 async def khaja(ctx):
     view = KhajaTimeView()
     await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
