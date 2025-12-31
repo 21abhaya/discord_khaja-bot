@@ -1,5 +1,6 @@
 import os
 import discord
+import asyncio
 
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -31,14 +32,15 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
         self.view.votes[interaction.user.id] = self.custom_item.value
         await interaction.response.edit_message(embed=self.view.create_embed(), view=self.view)
         
-            
+
         
 class KhajaTimeView(discord.ui.View):
     
-    def __init__(self):
-        super().__init__(timeout=None)
+    def __init__(self, initiator):
+        super().__init__(timeout=60)
+        self.initiator = initiator
         self.votes = {}
-        
+    
     def create_embed(self):
         embed = discord.Embed(title="Today's Khaja Poll", color=discord.Color.blue())
         
@@ -58,6 +60,16 @@ class KhajaTimeView(discord.ui.View):
         embed.add_field(name="Something else", value=others_count if others_count else "None", inline=True)
         return embed
     
+    def get_poll_summary(self):
+        return " Testing Summary from poll!"
+    
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        summary = self.get_poll_summary()
+        await self.initiator.send(f"Here is the poll summary:{summary}")
+        
+    
     @discord.ui.button(label="Half", style=discord.ButtonStyle.primary)
     async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes[interaction.user.id] = "Half"
@@ -75,8 +87,17 @@ class KhajaTimeView(discord.ui.View):
     
 @bot.command(name='khaja')
 async def khaja(ctx):
-    view = KhajaTimeView()
+    view = KhajaTimeView(initiator=ctx.author)
+    all_channel_members = ctx.channel.members
     await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
+    await asyncio.sleep(30)
     
+    members_who_have_not_voted_yet = [
+        member for member in all_channel_members if not member.bot and member.id not in view.votes
+    ]
+    if members_who_have_not_voted_yet:
+        mentions = [m.mention for m in members_who_have_not_voted_yet]
+        reminder_msg = f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!"
+        await ctx.send(reminder_msg)
     
 bot.run(token)
