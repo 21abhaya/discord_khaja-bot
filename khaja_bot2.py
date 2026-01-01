@@ -63,13 +63,6 @@ class KhajaTimeView(discord.ui.View):
     def get_poll_summary(self):
         return " Testing Summary from poll!"
     
-    async def on_timeout(self):
-        for item in self.children:
-            item.disabled = True
-        summary = self.get_poll_summary()
-        await self.initiator.send(f"Here is the poll summary:{summary}")
-        
-    
     @discord.ui.button(label="Half", style=discord.ButtonStyle.primary)
     async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes[interaction.user.id] = "Half"
@@ -83,6 +76,12 @@ class KhajaTimeView(discord.ui.View):
     @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
     async def something_else(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(ModalForSomethingElse(self))
+        
+    async def on_timeout(self):
+        for item in self.children:
+            item.disabled = True
+        summary = self.get_poll_summary()
+        await self.initiator.send(f"Here is the poll summary:{summary}")
         
     
 @bot.command(name='khaja')
