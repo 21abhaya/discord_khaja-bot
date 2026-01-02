@@ -1,6 +1,7 @@
 import os
 import discord
 import asyncio
+import datetime
 
 from discord.ext import commands
 from dotenv import load_dotenv
@@ -13,7 +14,7 @@ intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot(command_prefix='/', intents=intents)
 
 class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
     
@@ -37,7 +38,7 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
 class KhajaTimeView(discord.ui.View):
     
     def __init__(self, initiator):
-        super().__init__(timeout=60)
+        super().__init__(timeout=600)
         self.initiator = initiator
         self.votes = {}
     
@@ -61,7 +62,16 @@ class KhajaTimeView(discord.ui.View):
         return embed
     
     def get_poll_summary(self):
-        return " Testing Summary from poll!"
+        full_count = list(self.votes.values()).count("Full")
+        half_count = list(self.votes.values()).count("Half")
+        
+        # For 'Something Else', list the actual items
+        others = [v for v in self.votes.values() if v not in ["Full", "Half"]]
+        
+        msg = f"✅ **Totals:**\n- Full: {full_count}\n- Half: {half_count}"
+        if others:
+            msg += f"\n- Custom: {', '.join(others)}"
+        return msg
     
     @discord.ui.button(label="Half", style=discord.ButtonStyle.primary)
     async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -81,7 +91,7 @@ class KhajaTimeView(discord.ui.View):
         for item in self.children:
             item.disabled = True
         summary = self.get_poll_summary()
-        await self.initiator.send(f"Here is the poll summary:{summary}")
+        await self.initiator.send(f"**Here is the khaja summary for <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
         
     
 @bot.command(name='khaja')
@@ -89,7 +99,7 @@ async def khaja(ctx):
     view = KhajaTimeView(initiator=ctx.author)
     all_channel_members = ctx.channel.members
     await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
-    await asyncio.sleep(30)
+    await asyncio.sleep(300)
     
     members_who_have_not_voted_yet = [
         member for member in all_channel_members if not member.bot and member.id not in view.votes
