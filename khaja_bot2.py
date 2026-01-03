@@ -71,7 +71,7 @@ class KhajaTimeView(discord.ui.View):
         embed.add_field(
             name="Will be having something else today!", 
             value=f"**{others_count}**" if others_count else "None", 
-            inline=True
+            inline=False
         )
         embed.add_field(
             name="\u200b", # Zero-width space
@@ -85,7 +85,7 @@ class KhajaTimeView(discord.ui.View):
         half_count = list(self.votes.values()).count("Half")
         not_today_count = list(self.votes.values()).count("Not Today")
         # For 'Something Else', list the actual items
-        others = [v for v in self.votes.values() if v not in ["Full", "Half"]]
+        others = [v for v in self.votes.values() if v not in ["Full", "Half", "Not Today"]]
         
         msg = f"✅ **Totals:**\n- Full: {full_count}\n- Half: {half_count}\n- Not Today: {not_today_count}"
         if others:
