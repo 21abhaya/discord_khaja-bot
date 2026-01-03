@@ -43,27 +43,51 @@ class KhajaTimeView(discord.ui.View):
         self.votes = {}
     
     def create_embed(self):
-        embed = discord.Embed(title="Today's Khaja Poll", color=discord.Color.blue())
+        embed = discord.Embed(
+            title="Today's Khaja Poll", 
+            color=discord.Color.blue()
+        )
         
         full_count = list(self.votes.values()).count("Full")
         half_count = list(self.votes.values()).count("Half")
         not_today_count = list(self.votes.values()).count("Not Today")
         others_count = len(self.votes) - (full_count + half_count + not_today_count)
     
-        embed.add_field(name="Full", value=full_count if full_count else "None", inline=True)
-        embed.add_field(name="Half", value=half_count if half_count else "None", inline=True)
-        embed.add_field(name="Not Today", value=not_today_count if not_today_count else "None", inline=True)
-        embed.add_field(name="Something else", value=others_count if others_count else "None", inline=True)
+        embed.add_field(
+            name="Full", 
+            value=f"**{full_count}**" if full_count else "None", 
+            inline=True
+        )
+        embed.add_field(
+            name="Half", 
+            value=f"**{half_count}**" if half_count else "None", 
+            inline=True
+        )
+        embed.add_field(
+            name="Not Today", 
+            value=f"**{not_today_count}**" if not_today_count else "None", 
+            inline=True
+        )
+        embed.add_field(
+            name="Will be having something else today!", 
+            value=f"**{others_count}**" if others_count else "None", 
+            inline=True
+        )
+        embed.add_field(
+            name="\u200b", # Zero-width space
+            value="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", 
+            inline=False
+        )
         return embed
     
     def get_poll_summary(self):
         full_count = list(self.votes.values()).count("Full")
         half_count = list(self.votes.values()).count("Half")
-        
+        not_today_count = list(self.votes.values()).count("Not Today")
         # For 'Something Else', list the actual items
         others = [v for v in self.votes.values() if v not in ["Full", "Half"]]
         
-        msg = f"✅ **Totals:**\n- Full: {full_count}\n- Half: {half_count}"
+        msg = f"✅ **Totals:**\n- Full: {full_count}\n- Half: {half_count}\n- Not Today: {not_today_count}"
         if others:
             msg += f"\n- Custom: {', '.join(others)}"
         return msg
@@ -79,21 +103,21 @@ class KhajaTimeView(discord.ui.View):
         self.votes[interaction.user.id] = "Half"
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
         
+    @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
+    async def something_else(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(ModalForSomethingElse(self))
+        
     @discord.ui.button(label="Not Today", style=discord.ButtonStyle.danger)
     async def not_today_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes[interaction.user.id] = "Not Today"
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
         
-    @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
-    async def something_else(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ModalForSomethingElse(self))
-        
     async def on_timeout(self):
         for item in self.children:
             item.disabled = True
         summary = self.get_poll_summary()
-        await self.initiator.send(f"**Here is the khaja summary for <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
-        await print("Poll Closed!")
+        print("Poll Closed!")
+        await self.initiator.send(f"**Testing khaja bot <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
         
     
 @bot.command(name='khaja')
