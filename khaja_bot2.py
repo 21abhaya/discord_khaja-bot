@@ -156,9 +156,10 @@ async def khaja(ctx):
     members_who_have_not_voted_yet = [
         member for member in all_channel_members if not member.bot and member.id not in view.votes
     ]
+    
     if members_who_have_not_voted_yet:
         mentions = [m.mention for m in members_who_have_not_voted_yet]
-        reminder_msg = f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!"
-        await ctx.send(reminder_msg)
-    
+        reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
+        await asyncio.sleep(10)
+        await reminder_msg.delete()
 bot.run(token)
