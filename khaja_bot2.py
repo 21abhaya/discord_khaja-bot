@@ -37,9 +37,10 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
         
 class KhajaTimeView(discord.ui.View):
     
-    def __init__(self, initiator):
+    def __init__(self, initiator, channel_members):
         super().__init__(timeout=30)
         self.initiator = initiator
+        self.channel_members = channel_members
         self.votes = {}
     
     def create_embed(self):
@@ -81,17 +82,42 @@ class KhajaTimeView(discord.ui.View):
         return embed
     
     def get_poll_summary(self):
+        total_votes = len(self.votes)
         full_count = list(self.votes.values()).count("Full")
         half_count = list(self.votes.values()).count("Half")
-        not_today_count = list(self.votes.values()).count("Not Today")
-        # For 'Something Else', list the actual items
-        others = [v for v in self.votes.values() if v not in ["Full", "Half", "Not Today"]]
         
-        msg = f"✅ **Totals:**\n- Full: {full_count}\n- Half: {half_count}\n- Not Today: {not_today_count}"
-        if others:
-            msg += f"\n- Custom: {', '.join(others)}"
+        custom_orders = []
+        did_not_order_today = []
+        
+        did_not_vote_today = [
+            member.name for member in self.channel_members if not member.bot and member.id not in self.votes
+        ]
+        print("No Vote Today:", did_not_vote_today)
+        for user_id, choice in self.votes.items():
+            
+            member = discord.utils.get(self.channel_members, id=user_id)
+            name = member.name if member else f"Unknown-{user_id}"
+            
+            
+            if choice == "Not Today":
+                did_not_order_today.append(name)
+            elif choice not in ["Full", "Half"]:
+                custom_orders.append(f"• **{name}**: {choice}")
+            
+        msg = f"\n✅ **Summarizing Poll Results:**\n- **Total Votes:** {total_votes}\n"
+        msg += f"\n- **Full:** {full_count}\n- **Half:** {half_count}\n"
+        
+        if custom_orders:
+            msg += "\n📝 **Custom Orders:**\n" + "\n- ".join(custom_orders)
+        if did_not_order_today:
+            msg += "\n🙅 **Not Joining:**\n" + "\n- ".join(did_not_order_today)
+        if did_not_vote_today:
+            msg += "\n❌ **No Votes from:**\n" + "\n- ".join(did_not_vote_today)    
+        
         return msg
-    
+        
+        
+            
 
     @discord.ui.button(label="Full", style=discord.ButtonStyle.primary)
     async def full_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -122,7 +148,7 @@ class KhajaTimeView(discord.ui.View):
     
 @bot.command(name='khaja')
 async def khaja(ctx):
-    view = KhajaTimeView(initiator=ctx.author)
+    view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
     all_channel_members = ctx.channel.members
     await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
     await asyncio.sleep(15)
