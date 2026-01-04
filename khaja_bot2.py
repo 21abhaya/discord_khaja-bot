@@ -143,7 +143,7 @@ class KhajaTimeView(discord.ui.View):
         for item in self.children:
             item.disabled = True
         summary = self.get_poll_summary()
-        await self.initiator.send(f"**✅ Testing: Poll Summary from khaja bot on <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
+        await self.initiator.send(f"**✅ Poll Summary from khaja bot on <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
         if hasattr(self, 'message'):
             try:
                 await self.message.edit(content="🛑 **This poll is now closed!**", view=None)
