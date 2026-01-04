@@ -41,6 +41,7 @@ class KhajaTimeView(discord.ui.View):
         super().__init__(timeout=30)
         self.initiator = initiator
         self.channel_members = channel_members
+        self.message = None
         self.votes = {}
     
     def create_embed(self):
@@ -143,6 +144,12 @@ class KhajaTimeView(discord.ui.View):
             item.disabled = True
         summary = self.get_poll_summary()
         await self.initiator.send(f"**✅ Testing: Poll Summary from khaja bot on <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
+        if hasattr(self, 'message'):
+            try:
+                await self.message.edit(content="🛑 **This poll is now closed!**", view=None)
+            except discord.HTTPException as e:
+                print(f"Reminder cleanup failed: {e}")
+                pass
         print("Poll Closed!")
         
     
@@ -150,7 +157,7 @@ class KhajaTimeView(discord.ui.View):
 async def khaja(ctx):
     view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
     all_channel_members = ctx.channel.members
-    await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
+    view.message = await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
     await asyncio.sleep(15)
     
     members_who_have_not_voted_yet = [
@@ -158,8 +165,12 @@ async def khaja(ctx):
     ]
     
     if members_who_have_not_voted_yet:
-        mentions = [m.mention for m in members_who_have_not_voted_yet]
-        reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
-        await asyncio.sleep(10)
-        await reminder_msg.delete()
+        try:
+            mentions = [m.mention for m in members_who_have_not_voted_yet]
+            reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
+            await asyncio.sleep(10)
+            await reminder_msg.delete()
+        except discord.HTTPException as e:
+            print(f"Reminder cleanup failed: {e}")
+            pass
 bot.run(token)
