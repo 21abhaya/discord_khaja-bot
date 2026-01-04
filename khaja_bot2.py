@@ -38,7 +38,7 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
 class KhajaTimeView(discord.ui.View):
     
     def __init__(self, initiator, channel_members):
-        super().__init__(timeout=30)
+        super().__init__(timeout=1200)
         self.initiator = initiator
         self.channel_members = channel_members
         self.message = None
@@ -158,7 +158,7 @@ async def khaja(ctx):
     view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
     all_channel_members = ctx.channel.members
     view.message = await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
-    await asyncio.sleep(15)
+    await asyncio.sleep(600)
     
     members_who_have_not_voted_yet = [
         member for member in all_channel_members if not member.bot and member.id not in view.votes
@@ -168,7 +168,7 @@ async def khaja(ctx):
         try:
             mentions = [m.mention for m in members_who_have_not_voted_yet]
             reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
-            await asyncio.sleep(10)
+            await asyncio.sleep(300)
             await reminder_msg.delete()
         except discord.HTTPException as e:
             print(f"Reminder cleanup failed: {e}")
