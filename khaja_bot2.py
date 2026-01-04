@@ -45,7 +45,7 @@ class KhajaTimeView(discord.ui.View):
     
     def create_embed(self):
         embed = discord.Embed(
-            title="Today's Khaja Poll", 
+            title=f"Khaja Poll for <t:{int(datetime.datetime.now().timestamp())}:D>:", 
             color=discord.Color.blue()
         )
         
@@ -55,12 +55,12 @@ class KhajaTimeView(discord.ui.View):
         others_count = len(self.votes) - (full_count + half_count + not_today_count)
     
         embed.add_field(
-            name="Full", 
+            name="Full Portion", 
             value=f"**{full_count}**" if full_count else "None", 
             inline=True
         )
         embed.add_field(
-            name="Half", 
+            name="Half Portion", 
             value=f"**{half_count}**" if half_count else "None", 
             inline=True
         )
@@ -70,13 +70,13 @@ class KhajaTimeView(discord.ui.View):
             inline=True
         )
         embed.add_field(
-            name="Will be having something else today!", 
+            name="Something else", 
             value=f"**{others_count}**" if others_count else "None", 
             inline=False
         )
         embed.add_field(
             name="\u200b", # Zero-width space
-            value="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", 
+            value="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", 
             inline=False
         )
         return embed
@@ -85,14 +85,13 @@ class KhajaTimeView(discord.ui.View):
         total_votes = len(self.votes)
         full_count = list(self.votes.values()).count("Full")
         half_count = list(self.votes.values()).count("Half")
+        did_not_vote_today = [
+            member.name for member in self.channel_members if not member.bot and member.id not in self.votes
+        ]
         
         custom_orders = []
         did_not_order_today = []
         
-        did_not_vote_today = [
-            member.name for member in self.channel_members if not member.bot and member.id not in self.votes
-        ]
-        print("No Vote Today:", did_not_vote_today)
         for user_id, choice in self.votes.items():
             
             member = discord.utils.get(self.channel_members, id=user_id)
@@ -102,17 +101,18 @@ class KhajaTimeView(discord.ui.View):
             if choice == "Not Today":
                 did_not_order_today.append(name)
             elif choice not in ["Full", "Half"]:
-                custom_orders.append(f"• **{name}**: {choice}")
+                custom_orders.append(f"**{name}**: {choice}")
             
-        msg = f"\n✅ **Summarizing Poll Results:**\n- **Total Votes:** {total_votes}\n"
-        msg += f"\n- **Full:** {full_count}\n- **Half:** {half_count}\n"
+        msg = f"\n- **Total Votes:** {total_votes}\n"
+        msg += f"\n- **Full Portion:** {full_count}\n- **Half Portion:** {half_count}\n"
         
         if custom_orders:
-            msg += "\n📝 **Custom Orders:**\n" + "\n- ".join(custom_orders)
+            msg += "\n📝 **Custom Orders:**\n- " + "\n- ".join(custom_orders) + "\n"
         if did_not_order_today:
-            msg += "\n🙅 **Not Joining:**\n" + "\n- ".join(did_not_order_today)
+            msg += "\n🙅 **Not Joining:**\n- " + "\n- ".join(did_not_order_today) + "\n"
         if did_not_vote_today:
-            msg += "\n❌ **No Votes from:**\n" + "\n- ".join(did_not_vote_today)    
+            msg += "\n❌ **No Votes from:**\n- " + "\n- ".join(did_not_vote_today) + "\n"   
+        msg += "\n---------------------------- END SUMMARY ----------------------------\n"
         
         return msg
         
@@ -142,8 +142,8 @@ class KhajaTimeView(discord.ui.View):
         for item in self.children:
             item.disabled = True
         summary = self.get_poll_summary()
+        await self.initiator.send(f"**✅ Testing: Poll Summary from khaja bot on <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
         print("Poll Closed!")
-        await self.initiator.send(f"**Testing khaja bot <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
         
     
 @bot.command(name='khaja')
