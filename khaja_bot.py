@@ -118,7 +118,7 @@ class KhajaTimeView(discord.ui.View):
             msg += f"\n🌓 **Half Portion:** {half_count}\n- " + "\n- ".join(members_who_chose_half) + "\n"
 
         if custom_orders:
-            msg += "\n📝 **Custom Orders:**\n- " + "\n- ".join(custom_orders) + "\n"
+            msg += f"\n📝 **Custom Orders:** {len(custom_orders)}\n- " + "\n- ".join(custom_orders) + "\n"
         if did_not_order_today:
             msg += f"\n🙅 **Not Joining:** {len(did_not_order_today)}\n- " + "\n- ".join(did_not_order_today) + "\n"
         if did_not_vote_today:
