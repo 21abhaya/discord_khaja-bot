@@ -38,7 +38,7 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
 class KhajaTimeView(discord.ui.View):
     
     def __init__(self, initiator, channel_members):
-        super().__init__(timeout=1800)
+        super().__init__(timeout=1200)
         self.initiator = initiator
         self.channel_members = channel_members
         self.message = None
@@ -86,10 +86,13 @@ class KhajaTimeView(discord.ui.View):
         total_votes = len(self.votes)
         full_count = list(self.votes.values()).count("Full")
         half_count = list(self.votes.values()).count("Half")
+        
         did_not_vote_today = [
             member.name for member in self.channel_members if not member.bot and member.id not in self.votes
         ]
         
+        members_who_chose_full = []
+        members_who_chose_half = []
         custom_orders = []
         did_not_order_today = []
         
@@ -98,26 +101,31 @@ class KhajaTimeView(discord.ui.View):
             member = discord.utils.get(self.channel_members, id=user_id)
             name = member.name if member else f"Unknown-{user_id}"
             
-            
+            if choice not in ["Full", "Half", "Not Today"]:
+                custom_orders.append(f"**{name}**: {choice}")
+            if choice == "Full":
+                members_who_chose_full.append(name)
+            if choice == "Half":
+                members_who_chose_half.append(name)
             if choice == "Not Today":
                 did_not_order_today.append(name)
-            elif choice not in ["Full", "Half"]:
-                custom_orders.append(f"**{name}**: {choice}")
             
-        msg = f"\n- **Total Votes:** {total_votes}\n"
-        msg += f"\n- **Full Portion:** {full_count}\n- **Half Portion:** {half_count}\n"
-        
+        msg = f"\n🗳️ **Total Votes:** {total_votes}\n"
+
+        if full_count:
+            msg += f"\n🌕 **Full Portion:** {full_count}\n- " + "\n- ".join(members_who_chose_full) + "\n"
+        if half_count:
+            msg += f"\n🌓 **Half Portion:** {half_count}\n- " + "\n- ".join(members_who_chose_half) + "\n"
+
         if custom_orders:
             msg += "\n📝 **Custom Orders:**\n- " + "\n- ".join(custom_orders) + "\n"
         if did_not_order_today:
-            msg += "\n🙅 **Not Joining:**\n- " + "\n- ".join(did_not_order_today) + "\n"
+            msg += f"\n🙅 **Not Joining:** {len(did_not_order_today)}\n- " + "\n- ".join(did_not_order_today) + "\n"
         if did_not_vote_today:
-            msg += "\n❌ **No Votes from:**\n- " + "\n- ".join(did_not_vote_today) + "\n"   
+            msg += f"\n❌ **No Votes from:** {len(did_not_vote_today)}\n- " + "\n- ".join(did_not_vote_today) + "\n"   
         msg += "\n---------------------------- END SUMMARY ----------------------------\n"
         
         return msg
-        
-        
             
 
     @discord.ui.button(label="Full", style=discord.ButtonStyle.primary)
@@ -158,7 +166,7 @@ async def khaja(ctx):
     view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
     all_channel_members = ctx.channel.members
     view.message = await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
-    await asyncio.sleep(900)
+    await asyncio.sleep(600)
     
     members_who_have_not_voted_yet = [
         member for member in all_channel_members if not member.bot and member.id not in view.votes
@@ -168,8 +176,9 @@ async def khaja(ctx):
         try:
             mentions = [m.mention for m in members_who_have_not_voted_yet]
             reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
-            await asyncio.sleep(600)
+            await asyncio.sleep(300)
             await reminder_msg.delete()
+            print("Deleted Reminder Message!")
         except discord.HTTPException as e:
             print(f"Reminder cleanup failed: {e}")
             pass
