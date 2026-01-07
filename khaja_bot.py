@@ -50,18 +50,18 @@ class KhajaTimeView(discord.ui.View):
             color=discord.Color.blue()
         )
         
-        full_count = list(self.votes.values()).count("Full")
-        half_count = list(self.votes.values()).count("Half")
+        full_count = list(self.votes.values()).count("Chicken Momo")
+        half_count = list(self.votes.values()).count("Veg Momo")
         not_today_count = list(self.votes.values()).count("Not Today")
         others_count = len(self.votes) - (full_count + half_count + not_today_count)
     
         embed.add_field(
-            name="Full Portion", 
+            name="Chicken Momo", 
             value=f"**{full_count}**" if full_count else "None", 
             inline=True
         )
         embed.add_field(
-            name="Half Portion", 
+            name="Veg Momo", 
             value=f"**{half_count}**" if half_count else "None", 
             inline=True
         )
@@ -84,8 +84,8 @@ class KhajaTimeView(discord.ui.View):
     
     def get_poll_summary(self):
         total_votes = len(self.votes)
-        full_count = list(self.votes.values()).count("Full")
-        half_count = list(self.votes.values()).count("Half")
+        full_count = list(self.votes.values()).count("Chicken Momo")
+        half_count = list(self.votes.values()).count("Veg Momo")
         
         did_not_vote_today = [
             member.name for member in self.channel_members if not member.bot and member.id not in self.votes
@@ -101,11 +101,11 @@ class KhajaTimeView(discord.ui.View):
             member = discord.utils.get(self.channel_members, id=user_id)
             name = member.name if member else f"Unknown-{user_id}"
             
-            if choice not in ["Full", "Half", "Not Today"]:
+            if choice not in ["Chicken Momo", "Veg Momo", "Not Today"]:
                 custom_orders.append(f"**{name}**: {choice}")
-            if choice == "Full":
+            if choice == "Chicken Momo":
                 members_who_chose_full.append(name)
-            if choice == "Half":
+            if choice == "Veg Momo":
                 members_who_chose_half.append(name)
             if choice == "Not Today":
                 did_not_order_today.append(name)
@@ -113,9 +113,9 @@ class KhajaTimeView(discord.ui.View):
         msg = f"\n🗳️ **Total Votes:** {total_votes}\n"
 
         if full_count:
-            msg += f"\n🌕 **Full Portion:** {full_count}\n- " + "\n- ".join(members_who_chose_full) + "\n"
+            msg += f"\n🌕 **Chicken Momo:** {full_count}\n- " + "\n- ".join(members_who_chose_full) + "\n"
         if half_count:
-            msg += f"\n🌓 **Half Portion:** {half_count}\n- " + "\n- ".join(members_who_chose_half) + "\n"
+            msg += f"\n🌓 **Veg Momo:** {half_count}\n- " + "\n- ".join(members_who_chose_half) + "\n"
 
         if custom_orders:
             msg += f"\n📝 **Custom Orders:** {len(custom_orders)}\n- " + "\n- ".join(custom_orders) + "\n"
@@ -128,14 +128,14 @@ class KhajaTimeView(discord.ui.View):
         return msg
             
 
-    @discord.ui.button(label="Full", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Chicken", style=discord.ButtonStyle.primary)
     async def full_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Full"
+        self.votes[interaction.user.id] = "Chicken Momo"
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
-    @discord.ui.button(label="Half", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Veg", style=discord.ButtonStyle.success)
     async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Half"
+        self.votes[interaction.user.id] = "Veg Momo"
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
         
     @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
@@ -176,6 +176,7 @@ async def khaja(ctx):
         try:
             mentions = [m.mention for m in members_who_have_not_voted_yet]
             reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
+            print("Sent reminder message!")
             await asyncio.sleep(300)
             await reminder_msg.delete()
             print("Deleted Reminder Message!")
