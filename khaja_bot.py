@@ -26,7 +26,7 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
         label='What would you like to have today?',
         placeholder='e.g. Veg Chowmein, Chicken Momo Fry...',
         min_length=1,
-        max_length=50
+        max_length=100
     )
     
     async def on_submit(self, interaction: discord.Interaction):
