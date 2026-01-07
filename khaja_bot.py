@@ -176,6 +176,7 @@ async def khaja(ctx):
         try:
             mentions = [m.mention for m in members_who_have_not_voted_yet]
             reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
+            print("Sent reminder message!")
             await asyncio.sleep(300)
             await reminder_msg.delete()
             print("Deleted Reminder Message!")
