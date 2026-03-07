@@ -15,6 +15,7 @@ intents.message_content = True
 intents.members = True
 
 bot = commands.Bot(command_prefix='/', intents=intents)
+bot.is_poll_active = False
 
 class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
     
@@ -150,6 +151,9 @@ class KhajaTimeView(discord.ui.View):
     async def on_timeout(self):
         for item in self.children:
             item.disabled = True
+            
+        bot.is_poll_active = False
+        
         summary = self.get_poll_summary()
         await self.initiator.send(f"**✅ Poll Summary from khaja bot on <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
         if hasattr(self, 'message'):
@@ -163,24 +167,36 @@ class KhajaTimeView(discord.ui.View):
     
 @bot.command(name='khaja')
 async def khaja(ctx):
-    view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
-    all_channel_members = ctx.channel.members
-    view.message = await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
-    await asyncio.sleep(300)
     
-    members_who_have_not_voted_yet = [
-        member for member in all_channel_members if not member.bot and member.id not in view.votes
-    ]
+    if bot.is_poll_active:
+        await ctx.send("🛑 A poll is already in progress! Please wait for it to finish.")
+        return 
     
-    if members_who_have_not_voted_yet:
-        try:
-            mentions = [m.mention for m in members_who_have_not_voted_yet]
-            reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
-            print("Sent reminder message!")
-            await asyncio.sleep(150)
-            await reminder_msg.delete()
-            print("Deleted Reminder Message!")
-        except discord.HTTPException as e:
-            print(f"Reminder cleanup failed: {e}")
-            pass
+    bot.is_poll_active = True
+    
+    try:
+        view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
+        all_channel_members = ctx.channel.members
+        view.message = await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
+        await asyncio.sleep(300)
+        
+        members_who_have_not_voted_yet = [
+            member for member in all_channel_members if not member.bot and member.id not in view.votes
+        ]
+        
+        if members_who_have_not_voted_yet:
+            try:
+                mentions = [m.mention for m in members_who_have_not_voted_yet]
+                reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
+                print("Sent reminder message!")
+                await asyncio.sleep(150)
+                await reminder_msg.delete()
+                print("Deleted Reminder Message!")
+            except discord.HTTPException as e:
+                print(f"Reminder cleanup failed: {e}")
+                pass
+    
+    finally:
+        bot.is_bot_active = False
+
 bot.run(token)
