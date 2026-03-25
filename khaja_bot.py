@@ -133,14 +133,14 @@ class KhajaTimeView(discord.ui.View):
 
     @discord.ui.button(label="Chicken", style=discord.ButtonStyle.primary)
     async def full_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Full"
-        sys.stdout.write(f"\n🌕 {interaction.user.name} voted: Full\n")
+        self.votes[interaction.user.id] = "Chicken Momo"
+        sys.stdout.write(f"\n🌕 {interaction.user.name} voted: Chicken Momo\n")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
     @discord.ui.button(label="Veg", style=discord.ButtonStyle.success)
     async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Half"
-        sys.stdout.write(f"\n🌓 {interaction.user.name} voted: Half\n")
+        self.votes[interaction.user.id] = "Veg Momo"
+        sys.stdout.write(f"\n🌓 {interaction.user.name} voted: Veg Momo\n")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
         
     @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
