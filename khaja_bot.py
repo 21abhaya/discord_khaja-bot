@@ -1,4 +1,5 @@
 import os
+import sys
 import discord
 import asyncio
 import datetime
@@ -32,6 +33,7 @@ class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
     
     async def on_submit(self, interaction: discord.Interaction):
         self.view.votes[interaction.user.id] = self.custom_item.value
+        sys.stdout.write(f"\n📝 {interaction.user.name} custom order: {self.custom_item.value}\n")
         await interaction.response.edit_message(embed=self.view.create_embed(), view=self.view)
         
 
@@ -132,11 +134,13 @@ class KhajaTimeView(discord.ui.View):
     @discord.ui.button(label="Full", style=discord.ButtonStyle.primary)
     async def full_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes[interaction.user.id] = "Full"
+        sys.stdout.write(f"\n🌕 {interaction.user.name} voted: Full\n")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
     @discord.ui.button(label="Half", style=discord.ButtonStyle.success)
     async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes[interaction.user.id] = "Half"
+        sys.stdout.write(f"\n🌓 {interaction.user.name} voted: Half\n")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
         
     @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
@@ -146,6 +150,7 @@ class KhajaTimeView(discord.ui.View):
     @discord.ui.button(label="Not Today", style=discord.ButtonStyle.danger)
     async def not_today_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.votes[interaction.user.id] = "Not Today"
+        sys.stdout.write(f"\n🙅 {interaction.user.name} voted: Not Today\n")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
         
     async def on_timeout(self):
