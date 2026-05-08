@@ -1,5 +1,5 @@
 import os
-import sys
+import logging
 import discord
 import asyncio
 import datetime
@@ -11,6 +11,29 @@ load_dotenv()
 
 token = os.getenv('DISCORD_TOKEN')
 
+# ---------------------------------------------------------------------------
+# LOGGER SETUP
+# ---------------------------------------------------------------------------
+
+LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+logger = logging.getLogger("khaja_bot")
+logger.setLevel(logging.INFO)
+
+_console_handler = logging.StreamHandler()
+_console_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
+
+_file_handler = logging.FileHandler("khaja_bot.log", mode="a", encoding="utf-8")
+_file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT))
+
+logger.addHandler(_console_handler)
+logger.addHandler(_file_handler)
+
+# ---------------------------------------------------------------------------
+# BOT SETUP
+# ---------------------------------------------------------------------------
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
@@ -18,190 +41,482 @@ intents.members = True
 bot = commands.Bot(command_prefix='/', intents=intents)
 bot.is_poll_active = False
 
-class ModalForSomethingElse(discord.ui.Modal, title="Custom Order"):
-    
-    def __init__(self, view):
-        super().__init__()
-        self.view = view
-    
-    custom_item = discord.ui.TextInput(
-        label='What would you like to have today?',
-        placeholder='e.g. Veg Chowmein, Chicken Momo Fry...',
-        min_length=1,
-        max_length=100
-    )
-    
-    async def on_submit(self, interaction: discord.Interaction):
-        self.view.votes[interaction.user.id] = self.custom_item.value
-        sys.stdout.write(f"\n📝 {interaction.user.name} custom order: {self.custom_item.value}\n")
-        await interaction.response.edit_message(embed=self.view.create_embed(), view=self.view)
-        
+# ---------------------------------------------------------------------------
+# MENU DEFINITION
+# ---------------------------------------------------------------------------
 
-        
+ADDONS = ["Momo ko Achaar", "Tomato Ketchup", "Salt"]
+
+# Full pool of all items with variants (used to build "Others" per day)
+ALL_ITEMS = {
+    "Fried Rice": ["Full", "Half", "Egg-Full", "Egg-Half"],
+    "Anda-Chiura": ["Full", "Half"],
+    "Momo": [
+        "Veg Steam", "Veg Fried",
+        "Chicken Steam", "Chicken Fried",
+        "Buff Steam", "Buff Fried",
+    ],
+    "Chowmein": [
+        "Chicken Full", "Chicken Half",
+        "Veg Full", "Veg Half",
+        "Buff Full", "Buff Half",
+    ],
+    "Chana": [],
+    "Boiled Eggs": [],   # special — triggers modal for count
+    "Syabhale": [],      # special — triggers modal for count
+    "Pangra-Chiura": [],
+    "Dahi Chiura": [],
+    "Dahi": [],
+}
+
+# Fixed item per weekday (0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri)
+FIXED_ITEM_BY_DAY = {
+    0: "Fried Rice",
+    1: "Anda-Chiura",
+    2: "Momo",
+    3: "Chowmein",
+    4: "Momo",
+    7: "Chowmein"
+}
+
+def get_fixed_item(weekday: int):
+    """Return the fixed item name for today, or None on weekends."""
+    return FIXED_ITEM_BY_DAY.get(weekday)
+
+def build_fixed_options(item_name: str) -> list[discord.SelectOption]:
+    variants = ALL_ITEMS.get(item_name, [])
+    if variants:
+        return [discord.SelectOption(label=f"{item_name} — {v}", value=f"{item_name} — {v}") for v in variants]
+    return [discord.SelectOption(label=item_name, value=item_name)]
+
+def build_others_options(fixed_item_name: str | None) -> list[discord.SelectOption]:
+    options = []
+    for item, variants in ALL_ITEMS.items():
+        if item == fixed_item_name:
+            continue
+        if variants:
+            for v in variants:
+                options.append(discord.SelectOption(label=f"{item} — {v}", value=f"{item} — {v}"))
+        else:
+            options.append(discord.SelectOption(label=item, value=item))
+    return options
+
+def build_addon_options() -> list[discord.SelectOption]:
+    return [discord.SelectOption(label=a, value=a) for a in ADDONS]
+
+# ---------------------------------------------------------------------------
+# MODAL — Boiled Eggs count
+# ---------------------------------------------------------------------------
+
+class ModalForBoiledEggs(discord.ui.Modal, title="Boiled Eggs — How many?"):
+
+    def __init__(self, view: "KhajaTimeView"):
+        super().__init__()
+        self.khaja_view = view
+
+    egg_count = discord.ui.TextInput(
+        label="Number of eggs",
+        placeholder="e.g. 2",
+        min_length=1,
+        max_length=2,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = self.egg_count.value.strip()
+        if not raw.isdigit() or int(raw) < 1:
+            await interaction.response.send_message(
+                "Please enter a valid number of eggs (e.g. 1, 2, 3).", ephemeral=True
+            )
+            return
+
+        count = int(raw)
+        label = f"Boiled Eggs x{count}"
+
+        if interaction.user.id not in self.khaja_view.votes:
+            self.khaja_view.votes[interaction.user.id] = {}
+
+        self.khaja_view.votes[interaction.user.id]["others"] = label
+        logger.info(f"{interaction.user.name} selected others: {label}")
+        await interaction.response.edit_message(
+            embed=self.khaja_view.create_embed(), view=self.khaja_view
+        )
+
+
+# ---------------------------------------------------------------------------
+# MODAL — Syabhale count
+# ---------------------------------------------------------------------------
+
+class ModalForSyabhale(discord.ui.Modal, title="Syabhale — How many?"):
+
+    def __init__(self, view: "KhajaTimeView"):
+        super().__init__()
+        self.khaja_view = view
+
+    syabhale_count = discord.ui.TextInput(
+        label="Number of Syabhale",
+        placeholder="e.g. 2",
+        min_length=1,
+        max_length=2,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = self.syabhale_count.value.strip()
+        if not raw.isdigit() or int(raw) < 1:
+            await interaction.response.send_message(
+                "Please enter a valid number (e.g. 1, 2, 3).", ephemeral=True
+            )
+            return
+
+        count = int(raw)
+        label = f"Syabhale x{count}"
+
+        if interaction.user.id not in self.khaja_view.votes:
+            self.khaja_view.votes[interaction.user.id] = {}
+
+        self.khaja_view.votes[interaction.user.id]["others"] = label
+        logger.info(f"{interaction.user.name} selected others: {label}")
+        await interaction.response.edit_message(
+            embed=self.khaja_view.create_embed(), view=self.khaja_view
+        )
+
+
+# ---------------------------------------------------------------------------
+# SELECT MENUS
+# ---------------------------------------------------------------------------
+
+class FixedItemSelect(discord.ui.Select):
+    def __init__(self, fixed_item: str):
+        options = build_fixed_options(fixed_item)
+        super().__init__(
+            placeholder=f"Today's special: {fixed_item}",
+            min_values=0,
+            max_values=1,
+            options=options,
+            row=0,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        view: KhajaTimeView = self.view
+        if interaction.user.id not in view.votes:
+            view.votes[interaction.user.id] = {}
+
+        chosen = self.values[0] if self.values else None
+        view.votes[interaction.user.id]["fixed"] = chosen
+        logger.info(f"{interaction.user.name} selected fixed: {chosen}")
+        await interaction.response.edit_message(embed=view.create_embed(), view=view)
+
+
+class OthersSelect(discord.ui.Select):
+    def __init__(self, fixed_item: str | None):
+        options = build_others_options(fixed_item)
+        super().__init__(
+            placeholder="Others — pick something else",
+            min_values=0,
+            max_values=1,
+            options=options,
+            row=1,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        view: KhajaTimeView = self.view
+        if interaction.user.id not in view.votes:
+            view.votes[interaction.user.id] = {}
+
+        chosen = self.values[0] if self.values else None
+
+        # Boiled Eggs and Syabhale trigger a modal for count
+        if chosen == "Boiled Eggs":
+            await interaction.response.send_modal(ModalForBoiledEggs(view))
+            return
+        if chosen == "Syabhale":
+            await interaction.response.send_modal(ModalForSyabhale(view))
+            return
+
+        view.votes[interaction.user.id]["others"] = chosen
+        logger.info(f"{interaction.user.name} selected others: {chosen}")
+        await interaction.response.edit_message(embed=view.create_embed(), view=view)
+
+
+class AddonsSelect(discord.ui.Select):
+    def __init__(self):
+        options = build_addon_options()
+        super().__init__(
+            placeholder="Add-ons (optional, pick any)",
+            min_values=0,
+            max_values=len(ADDONS),
+            options=options,
+            row=2,
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        view: KhajaTimeView = self.view
+        if interaction.user.id not in view.votes:
+            view.votes[interaction.user.id] = {}
+
+        view.votes[interaction.user.id]["addons"] = self.values
+        logger.info(f"{interaction.user.name} selected addons: {list(self.values)}")
+        await interaction.response.edit_message(embed=view.create_embed(), view=view)
+
+
+# ---------------------------------------------------------------------------
+# MAIN VIEW
+# ---------------------------------------------------------------------------
+
 class KhajaTimeView(discord.ui.View):
-    
-    def __init__(self, initiator, channel_members):
+
+    def __init__(self, initiator, channel_members, weekday: int):
         super().__init__(timeout=900)
         self.initiator = initiator
         self.channel_members = channel_members
         self.message = None
-        self.votes = {}
-    
-    def create_embed(self):
-        embed = discord.Embed(
-            title=f"Khaja Poll for <t:{int(datetime.datetime.now().timestamp())}:D>:", 
-            color=discord.Color.blue()
-        )
-        
-        full_count = list(self.votes.values()).count("Full")
-        half_count = list(self.votes.values()).count("Half")
-        not_today_count = list(self.votes.values()).count("Not Today")
-        others_count = len(self.votes) - (full_count + half_count + not_today_count)
-    
-        embed.add_field(
-            name="Full Portion", 
-            value=f"**{full_count}**" if full_count else "None", 
-            inline=True
-        )
-        embed.add_field(
-            name="Half Portion", 
-            value=f"**{half_count}**" if half_count else "None", 
-            inline=True
-        )
-        embed.add_field(
-            name="Not Today", 
-            value=f"**{not_today_count}**" if not_today_count else "None", 
-            inline=True
-        )
-        embed.add_field(
-            name="Something else", 
-            value=f"**{others_count}**" if others_count else "None", 
-            inline=False
-        )
-        embed.add_field(
-            name="\u200b", # Zero-width space
-            value="▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", 
-            inline=False
-        )
-        return embed
-    
-    def get_poll_summary(self):
-        total_votes = len(self.votes)
-        full_count = list(self.votes.values()).count("Full")
-        half_count = list(self.votes.values()).count("Half")
-        
-        did_not_vote_today = [
-            member.name for member in self.channel_members if not member.bot and member.id not in self.votes
-        ]
-        
-        members_who_chose_full = []
-        members_who_chose_half = []
-        custom_orders = []
-        did_not_order_today = []
-        
-        for user_id, choice in self.votes.items():
-            
-            member = discord.utils.get(self.channel_members, id=user_id)
-            name = member.name if member else f"Unknown-{user_id}"
-            
-            if choice not in ["Full", "Half", "Not Today"]:
-                custom_orders.append(f"**{name}**: {choice}")
-            if choice == "Full":
-                members_who_chose_full.append(name)
-            if choice == "Half":
-                members_who_chose_half.append(name)
-            if choice == "Not Today":
-                did_not_order_today.append(name)
-            
-        msg = f"\n🗳️ **Total Votes:** {total_votes}\n"
+        self.votes = {}  # user_id -> {"fixed": str|None, "others": str|None, "addons": list, "not_today": bool}
+        self.weekday = weekday
 
-        if full_count:
-            msg += f"\n🌕 **Full Portion:** {full_count}\n- " + "\n- ".join(members_who_chose_full) + "\n"
-        if half_count:
-            msg += f"\n🌓 **Half Portion:** {half_count}\n- " + "\n- ".join(members_who_chose_half) + "\n"
+        fixed_item = get_fixed_item(weekday)
+        self.fixed_item = fixed_item
 
-        if custom_orders:
-            msg += f"\n📝 **Custom Orders:** {len(custom_orders)}\n- " + "\n- ".join(custom_orders) + "\n"
-        if did_not_order_today:
-            msg += f"\n🙅 **Not Joining:** {len(did_not_order_today)}\n- " + "\n- ".join(did_not_order_today) + "\n"
-        if did_not_vote_today:
-            msg += f"\n❌ **No Votes from:** {len(did_not_vote_today)}\n- " + "\n- ".join(did_not_vote_today) + "\n"   
-        msg += "\n---------------------------- END SUMMARY ----------------------------\n"
-        
-        return msg
-            
+        if fixed_item:
+            self.add_item(FixedItemSelect(fixed_item))
+        self.add_item(OthersSelect(fixed_item))
+        self.add_item(AddonsSelect())
 
-    @discord.ui.button(label="Full", style=discord.ButtonStyle.primary)
-    async def full_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Full"
-        sys.stdout.write(f"\n🌕 {interaction.user.name} voted: Full\n")
+    # -- Submit button -------------------------------------------------------
+
+    @discord.ui.button(label="Submit Order", style=discord.ButtonStyle.success, row=3)
+    async def submit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        uid = interaction.user.id
+        if uid not in self.votes:
+            self.votes[uid] = {}
+        self.votes[uid]["not_today"] = False
+        logger.info(f"{interaction.user.name} submitted order")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
-    @discord.ui.button(label="Half", style=discord.ButtonStyle.success)
-    async def half_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Half"
-        sys.stdout.write(f"\n🌓 {interaction.user.name} voted: Half\n")
-        await interaction.response.edit_message(embed=self.create_embed(), view=self)
-        
-    @discord.ui.button(label="Something else", style=discord.ButtonStyle.secondary)
-    async def something_else(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(ModalForSomethingElse(self))
-        
-    @discord.ui.button(label="Not Today", style=discord.ButtonStyle.danger)
+    # -- Not Today button ----------------------------------------------------
+
+    @discord.ui.button(label="Not Today", style=discord.ButtonStyle.danger, row=3)
     async def not_today_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.votes[interaction.user.id] = "Not Today"
-        sys.stdout.write(f"\n🙅 {interaction.user.name} voted: Not Today\n")
+        self.votes[interaction.user.id] = {"not_today": True, "fixed": None, "others": None, "addons": []}
+        logger.info(f"{interaction.user.name} — Not Today")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
-        
+
+    # -- Embed ---------------------------------------------------------------
+
+    def create_embed(self):
+        now = int(datetime.datetime.now().timestamp())
+        day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][self.weekday]
+
+        embed = discord.Embed(
+            title=f"🍽️ Khaja Poll — {day_name} <t:{now}:D>",
+            color=discord.Color.blue(),
+        )
+
+        if self.fixed_item:
+            variants = ALL_ITEMS.get(self.fixed_item, [])
+            variant_str = ", ".join(variants) if variants else self.fixed_item
+            embed.add_field(
+                name=f"⭐ Today's Special: {self.fixed_item}",
+                value=variant_str,
+                inline=False,
+            )
+
+        # Live vote counts
+        total = 0
+        not_today_count = 0
+
+        for uid, vote in self.votes.items():
+            if vote.get("not_today"):
+                not_today_count += 1
+                continue
+            if not (vote.get("fixed") or vote.get("others")):
+                continue
+            total += 1
+
+        embed.add_field(name="✅ Ordered", value=str(total), inline=True)
+        embed.add_field(name="🙅 Not Today", value=str(not_today_count), inline=True)
+
+        pending = [
+            m for m in self.channel_members
+            if not m.bot and m.id not in self.votes
+        ]
+        embed.add_field(name="⏳ Pending", value=str(len(pending)), inline=True)
+
+        embed.set_footer(text="Use the menus below to place your order, then hit Submit.")
+        return embed
+
+    # -- Summary -------------------------------------------------------------
+
+    def get_poll_summary(self):
+        now = int(datetime.datetime.now().timestamp())
+        day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][self.weekday]
+
+        item_counts: dict[str, int] = {}
+        addon_counts: dict[str, int] = {}
+        not_today_members: list[str] = []
+        did_not_vote: list[str] = []
+        per_person_lines: list[str] = []
+
+        for member in self.channel_members:
+            if member.bot:
+                continue
+            vote = self.votes.get(member.id)
+            if vote is None:
+                did_not_vote.append(member.name)
+                continue
+
+            if vote.get("not_today"):
+                not_today_members.append(member.name)
+                per_person_lines.append(f"**{member.name}** — Not Today")
+                continue
+
+            fixed = vote.get("fixed")
+            others = vote.get("others")
+            addons = vote.get("addons") or []
+
+            if not fixed and not others:
+                # Interacted but submitted nothing — treat as no order
+                did_not_vote.append(member.name)
+                continue
+
+            if fixed:
+                item_counts[fixed] = item_counts.get(fixed, 0) + 1
+            if others:
+                item_counts[others] = item_counts.get(others, 0) + 1
+            for a in addons:
+                addon_counts[a] = addon_counts.get(a, 0) + 1
+
+            order_parts = []
+            if fixed:
+                order_parts.append(fixed)
+            if others:
+                order_parts.append(others)
+            if addons:
+                order_parts.append("+ " + ", ".join(addons))
+            per_person_lines.append(f"**{member.name}** — {' | '.join(order_parts)}")
+
+        # Build message
+        msg = f"**✅ Poll Summary — {day_name} <t:{now}:D>**\n"
+        msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+
+        # Aggregate
+        msg += "\n📊 **ORDER AGGREGATE**\n"
+        if item_counts:
+            for item, count in item_counts.items():
+                msg += f"  {item}: **{count}**\n"
+        else:
+            msg += "  (no orders)\n"
+
+        if addon_counts:
+            msg += "\n➕ **Add-ons:**\n"
+            for addon, count in addon_counts.items():
+                msg += f"  {addon}: **{count}**\n"
+
+        if not_today_members:
+            msg += f"\n🙅 **Not Today ({len(not_today_members)}):** {', '.join(not_today_members)}\n"
+
+        if did_not_vote:
+            msg += f"\n❌ **No Vote ({len(did_not_vote)}):** {', '.join(did_not_vote)}\n"
+
+        # Per person
+        msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        msg += "👤 **PER PERSON**\n"
+        for line in per_person_lines:
+            msg += f"  {line}\n"
+
+        msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ END\n"
+        return msg
+
+    # -- Timeout -------------------------------------------------------------
+
     async def on_timeout(self):
         for item in self.children:
             item.disabled = True
-            
+
         bot.is_poll_active = False
-        
+
         summary = self.get_poll_summary()
-        await self.initiator.send(f"**✅ Poll Summary from khaja bot on <t:{int(datetime.datetime.now().timestamp())}:D>:**\n{summary}")
-        if hasattr(self, 'message'):
+
+        logger.info(f"Poll closed — initiated by {self.initiator.name} | closed at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"Poll summary:\n{summary}")
+
+        try:
+            await self.initiator.send(summary)
+        except discord.HTTPException as e:
+            logger.error(f"Failed to DM summary to {self.initiator.name}: {e}")
+
+        if self.message:
             try:
-                await self.message.edit(content="🛑 **This poll is now closed!**", view=None)
+                await self.message.edit(content="🛑 **This poll is now closed!**", embed=None, view=None)
             except discord.HTTPException as e:
-                print(f"Reminder cleanup failed: {e}")
-                pass
-        print("Poll Closed!")
-        
-    
-@bot.command(name='khaja')
-async def khaja(ctx):
-    
+                logger.error(f"Failed to edit poll message on close: {e}")
+
+
+# ---------------------------------------------------------------------------
+# SLASH COMMAND
+# ---------------------------------------------------------------------------
+
+@bot.tree.command(name="khaja", description="Start the daily food order poll")
+async def khaja(interaction: discord.Interaction):
+
     if bot.is_poll_active:
-        await ctx.send("🛑 A poll is already in progress! Please wait for it to finish.")
-        return 
-    
+        await interaction.response.send_message(
+            "🛑 A poll is already in progress! Please wait for it to finish.", ephemeral=True
+        )
+        return
+
     bot.is_poll_active = True
-    
+
+    weekday = datetime.datetime.now().weekday()
+    view = KhajaTimeView(
+        initiator=interaction.user,
+        channel_members=interaction.channel.members,
+        weekday=weekday,
+    )
+
+    logger.info(f"Poll initiated by {interaction.user.name} | started at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+    await interaction.response.send_message(
+        embed=view.create_embed(), view=view
+    )
+    view.message = await interaction.original_response()
+
     try:
-        view = KhajaTimeView(initiator=ctx.author, channel_members=ctx.channel.members)
-        all_channel_members = ctx.channel.members
-        view.message = await ctx.send("Pick your portion!", embed=view.create_embed(), view=view)
         await asyncio.sleep(300)
-        
-        members_who_have_not_voted_yet = [
-            member for member in all_channel_members if not member.bot and member.id not in view.votes
+
+        members_not_voted = [
+            m for m in interaction.channel.members
+            if not m.bot and m.id not in view.votes
         ]
-        
-        if members_who_have_not_voted_yet:
+
+        if members_not_voted:
             try:
-                mentions = [m.mention for m in members_who_have_not_voted_yet]
-                reminder_msg = await ctx.send(f"🔔 **Lunch Reminder!**\nQuick {', '.join(mentions)}, please cast a vote so we can get lunch!")
-                print("Sent reminder message!")
+                names = ", ".join(m.name for m in members_not_voted)
+                mentions = ", ".join(m.mention for m in members_not_voted)
+                reminder_msg = await interaction.channel.send(
+                    f"🔔 **Lunch Reminder!** Quick {mentions}, please place your order!"
+                )
+                logger.info(f"Reminder sent to: {names}")
                 await asyncio.sleep(150)
                 await reminder_msg.delete()
-                print("Deleted Reminder Message!")
+                logger.info("Reminder message deleted")
             except discord.HTTPException as e:
-                print(f"Reminder cleanup failed: {e}")
-                pass
-    
+                logger.error(f"Reminder cleanup failed: {e}")
+
     finally:
         bot.is_poll_active = False
+
+
+# ---------------------------------------------------------------------------
+# SYNC SLASH COMMANDS ON READY
+# ---------------------------------------------------------------------------
+
+@bot.event
+async def on_ready():
+    try:
+        synced = await bot.tree.sync()
+        logger.info("")
+        logger.info(f"Bot started — logged in as {bot.user} | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | synced {len(synced)} slash command(s)")
+    except Exception as e:
+        logger.error(f"Failed to sync slash commands: {e}")
+
 
 bot.run(token)
