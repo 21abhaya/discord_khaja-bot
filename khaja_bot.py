@@ -202,6 +202,6 @@ async def khaja(ctx):
                 pass
     
     finally:
-        bot.is_bot_active = False
+        bot.is_poll_active = False
 
 bot.run(token)
