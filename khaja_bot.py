@@ -76,7 +76,6 @@ FIXED_ITEM_BY_DAY = {
     2: "Momo",
     3: "Chowmein",
     4: "Momo",
-    7: "Chowmein"
 }
 
 def get_fixed_item(weekday: int):
@@ -513,7 +512,6 @@ async def khaja(interaction: discord.Interaction):
 async def on_ready():
     try:
         synced = await bot.tree.sync()
-        logger.info("")
         logger.info(f"Bot started — logged in as {bot.user} | {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | synced {len(synced)} slash command(s)")
     except Exception as e:
         logger.error(f"Failed to sync slash commands: {e}")
