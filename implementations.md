@@ -385,3 +385,197 @@ Log format:
 | Slash command sync failure | ERROR | `Failed to sync slash commands: {exception}` |
 
 Datetime is only included in three log lines: bot start (`on_ready`), poll start (`khaja` command), and poll close (`on_timeout`). All other log lines contain only the event description.
+
+### [CHANGED] `on_ready` session separator
+
+An empty line (`logger.info("")`) is logged before the bot start line so each restart is visually separated in the log file.
+
+---
+
+## v2.3.0 — WhatsApp Summary Button + Submit Validation — 2026-05-09
+
+### [CHANGED] `get_poll_summary()` — split into three return values
+
+The method now returns a tuple `(plain_msg, aggregate_text, embed)` instead of a single string.
+
+**`plain_msg`** (str) — per-person breakdown only, sent as a plain Discord DM:
+```
+✅ Poll Summary — Monday <t:...:D>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 PER PERSON
+  **alice** — Momo — Chicken Steam
+  **bob** — Not Today
+  ...
+🙅 Not Today (1): bob
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ END
+```
+- Not Today members appear here, not in the aggregate
+
+**`aggregate_text`** (str) — aggregate counts only, in WhatsApp markdown (`*bold*`), used as the WhatsApp message body:
+```
+📊 *ORDER AGGREGATE*
+  Momo — Chicken Steam: *3*
+
+➕ *Extra:*
+  Momo ko Achaar: *2*
+
+❌ *No Vote (1):* alice
+```
+- "Add-ons" label renamed to "Extra"
+- No Not Today section
+
+**`embed`** (`discord.Embed`) — same aggregate content as `aggregate_text` but in Discord markdown (`**bold**`), sent as an embed with the WhatsApp button attached.
+
+---
+
+### [ADDED] `WhatsappView`
+
+A new `discord.ui.View` subclass added above `KhajaTimeView`:
+
+```python
+class WhatsappView(discord.ui.View):
+    def __init__(self, url):
+        super().__init__()
+        self.add_item(discord.ui.Button(label="Whatsapp it", url=url))
+```
+
+The `url` is produced by `send_message(aggregate_text)` from `message.py`, which URL-encodes the aggregate text and produces a `wa.me` deep link that pre-fills the message on the initiator's WhatsApp.
+
+---
+
+### [CHANGED] `on_timeout()` — two DMs instead of one
+
+**Before:**
+```python
+summary = self.get_poll_summary()
+await self.initiator.send(summary)
+```
+
+**After:**
+```python
+plain_msg, aggregate_text, embed = self.get_poll_summary()
+whatsapp_url = send_message(aggregate_text)
+view = WhatsappView(whatsapp_url)
+await self.initiator.send(plain_msg)
+await self.initiator.send(embed=embed, view=view)
+```
+
+The initiator now receives two DMs:
+1. Plain text per-person list
+2. Aggregate embed with a "Whatsapp it" button
+
+The logger now logs only `aggregate_text` (plain text, WhatsApp markdown) instead of the full summary.
+
+---
+
+### [FIXED] Submit button validation
+
+Previously, the Submit button accepted clicks from users who had not selected any food item, silently recording an empty order. A validation check was added:
+
+```python
+current = self.votes.get(uid, {})
+if not current.get("fixed") and not current.get("others"):
+    await interaction.response.send_message(
+        "⚠️ Please select at least one food item before submitting.", ephemeral=True
+    )
+    return
+```
+
+The error is sent as an ephemeral message (visible only to the user). Partial selections (e.g. add-ons already picked) are preserved in `self.votes` so the user can continue without losing their choices.
+
+---
+
+## v2.4.0 — Deferred Select Interactions + Simplified WhatsApp Aggregate — 2026-05-09
+
+### [CHANGED] Select callbacks — `edit_message` → `defer_update()`
+
+Previously, selecting any dropdown option immediately called `interaction.response.edit_message(...)`, which refreshed the embed and visually registered the selection as a response. This caused confusion — users expected the Submit button to be the confirmation step, but the dropdown was already acting as one.
+
+All three select callbacks now call `await interaction.response.defer_update()` instead:
+
+- `FixedItemSelect.callback`
+- `OthersSelect.callback`
+- `AddonsSelect.callback`
+
+Selections are still staged into `self.votes[user_id]` immediately, but the embed no longer refreshes on selection. The embed only updates when the user clicks **Submit Order** or **Not Today**. This makes the Submit button the clear and only confirmation step.
+
+`ModalForBoiledEggs.on_submit` and `ModalForSyabhale.on_submit` are unchanged — they still call `edit_message` since the modal submission itself is the confirmation for those items.
+
+---
+
+### [CHANGED] `aggregate_text` — plain text, no markdown or emojis
+
+The WhatsApp aggregate string was previously formatted with WhatsApp markdown (`*bold*`) and emojis. It is now plain structured text with no decoration:
+
+```
+Orders:
+Chicken Momo: 3
+Veg Fried Momo: 2
+Full Fried Rice: 2
+
+Extras:
+Momo ko Achaar: 2
+```
+
+- "Add-ons" / "Extra" header renamed to "Extras:"
+- No Vote and Not Today sections removed entirely from `aggregate_text`
+- The `discord.Embed` description is unchanged — it still uses Discord `**bold**` and emojis
+
+---
+
+## v2.5.0 — Removed Submit Button, Selection = Submission — 2026-05-09
+
+### [REMOVED] `submit_button`
+
+The Submit Order button and its validation logic were removed entirely. Clicking Submit was redundant — users had already made their selection via the dropdown. Having an extra confirmation step caused confusion about whether the order was placed or not.
+
+### [CHANGED] Select callbacks — restored `edit_message`, selection is now submission
+
+`FixedItemSelect.callback`, `OthersSelect.callback`, and `AddonsSelect.callback` all call `interaction.response.edit_message(...)` immediately on selection, refreshing the embed with updated live counts. Selecting a food item from a dropdown is now the act of placing an order — no further action required.
+
+`ModalForBoiledEggs.on_submit` and `ModalForSyabhale.on_submit` are unchanged — submitting the modal is the confirmation for those items.
+
+### [CHANGED] Embed footer
+
+Updated to remove the stale "hit Submit" instruction:
+
+**Before:** `"Use the menus below to place your order, then hit Submit."`
+**After:** `"Use the menus below to place your order."`
+
+---
+
+## v2.6.0 — Chicken Sausage & Buff Sausage with Count Modal — 2026-05-09
+
+### [ADDED] `Chicken Sausage` and `Buff Sausage` to `ALL_ITEMS`
+
+Both added as standalone items with empty variants lists, following the same pattern as `Boiled Eggs` and `Syabhale`:
+
+```python
+"Chicken Sausage": [],  # special — triggers modal for count
+"Buff Sausage": [],     # special — triggers modal for count
+```
+
+### [ADDED] `ModalForSausages`
+
+A single modal class shared by both sausage variants. Takes `item_name` as a constructor argument so the stored label reflects whichever was selected:
+
+```python
+class ModalForSausages(discord.ui.Modal, title="Sausages — How many?"):
+    def __init__(self, view: "KhajaTimeView", item_name: str):
+        ...
+```
+
+On submit:
+- Validates input is a positive integer; sends an ephemeral error if not
+- Stores as `"Chicken Sausage x{count}"` or `"Buff Sausage x{count}"` under `votes[user_id]["others"]`
+- Refreshes the embed with updated counts
+
+### [CHANGED] `OthersSelect.callback` — added Sausage intercept
+
+```python
+if chosen in ("Chicken Sausage", "Buff Sausage"):
+    await interaction.response.send_modal(ModalForSausages(view, chosen))
+    return
+```
+
+One modal class handles both variants — the `item_name` parameter carries the distinction.
