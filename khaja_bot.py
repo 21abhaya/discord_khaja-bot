@@ -7,7 +7,7 @@ import datetime
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from message import send_message
+from message import generate_whatsapp_link
 
 load_dotenv()
 
@@ -502,7 +502,7 @@ class KhajaTimeView(discord.ui.View):
         logger.info(f"Poll summary:\n{aggregate_text}")
 
         try:
-            whatsapp_url = send_message(aggregate_text)
+            whatsapp_url = generate_whatsapp_link(aggregate_text)
             view = WhatsappView(whatsapp_url)
             await self.initiator.send(plain_msg)
             await self.initiator.send(embed=embed, view=view)

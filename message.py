@@ -1,11 +1,20 @@
+import os
+
 from urllib.parse import quote
+from dotenv import load_dotenv
+
+load_dotenv()
+
+number = os.getenv('WHATSAPP_NUMBER')
 
 
-def send_message(message):
+def generate_whatsapp_link(message: str) -> str:
     
-    """encode the ordersummary and redirect with text to whatsapp 
-    initiator's device"""
+    """
+    Generate a Whatsapp deep link with the message passed as argument
+    """
     
     encoded = quote(message)
-    url = f"https://wa.me/9779813946169?text={encoded}"
+    url = f"https://wa.me/{number}?text={encoded}"
+    
     return url
