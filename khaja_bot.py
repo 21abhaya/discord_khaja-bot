@@ -7,6 +7,8 @@ import datetime
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from message import send_message
+
 load_dotenv()
 
 token = os.getenv('DISCORD_TOKEN')
