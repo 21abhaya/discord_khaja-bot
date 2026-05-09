@@ -7,7 +7,7 @@ import datetime
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from message import generate_whatsapp_link
+from whatsapp import generate_whatsapp_link
 
 load_dotenv()
 
