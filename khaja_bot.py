@@ -453,7 +453,7 @@ class KhajaTimeView(discord.ui.View):
                 aggregate_text += f"{addon}: {count}\n"
 
         # --- Embed (Discord markdown) ---
-        embed_desc = "📊 **ORDER AGGREGATE**\n"
+        embed_desc = "📊 **ORDER SUMMARY**\n"
         if item_counts:
             for item, count in item_counts.items():
                 embed_desc += f"  {item}: **{count}**\n"
@@ -469,7 +469,7 @@ class KhajaTimeView(discord.ui.View):
             embed_desc += f"\n❌ **No Vote ({len(did_not_vote)}):** {', '.join(did_not_vote)}\n"
 
         embed = discord.Embed(
-            title=f"📊 Order Aggregate — {day_name} <t:{now}:D>",
+            title=f"📊 Orders — {day_name} <t:{now}:D>",
             description=embed_desc,
             color=discord.Color.green()
         )
