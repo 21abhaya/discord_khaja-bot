@@ -47,11 +47,11 @@ bot.is_poll_active = False
 # MENU DEFINITION
 # ---------------------------------------------------------------------------
 
-ADDONS = ["Momo ko Achaar", "Tomato Ketchup", "Salt"]
+ADDONS = ["Momo ko Achaar", "Tomato Ketchup", "Salt", "2 Boiled Eggs"]
 
 # Full pool of all items with variants (used to build "Others" per day)
 ALL_ITEMS = {
-    "Fried Rice": ["Full", "Half", "Egg-Full", "Egg-Half"],
+    "Fried Rice": ["Full", "Half", "Egg Full", "Egg Half"],
     "Anda-Chiura": ["Full", "Half"],
     "Momo": [
         "Veg Steam", "Veg Fried",
@@ -60,15 +60,19 @@ ALL_ITEMS = {
     ],
     "Chowmein": [
         "Chicken Full", "Chicken Half",
+        "Chicken-Egg Full Mix", "Chicken-Egg Half Mix",
         "Veg Full", "Veg Half",
+        "Egg Full", "Egg Half",
         "Buff Full", "Buff Half",
     ],
-    "Chana": [],
     "Boiled Eggs": [],   # special — triggers modal for count
-    "Syabhale": [],      # special — triggers modal for count
-    "Pangra-Chiura": [],
     "Dahi Chiura": [],
     "Dahi": [],
+    "Syabhale": [],      # special — triggers modal for count
+    "Chana": [],
+    "Chicken Sausage": [],  # special — triggers modal for count
+    "Buff Sausage": [],     # special — triggers modal for count
+    "Pangra-Chiura": [],
 }
 
 # Fixed item per weekday (0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri)
@@ -87,7 +91,7 @@ def get_fixed_item(weekday: int):
 def build_fixed_options(item_name: str) -> list[discord.SelectOption]:
     variants = ALL_ITEMS.get(item_name, [])
     if variants:
-        return [discord.SelectOption(label=f"{item_name} — {v}", value=f"{item_name} — {v}") for v in variants]
+        return [discord.SelectOption(label=f"{v} {item_name}", value=f"{v} {item_name}") for v in variants]
     return [discord.SelectOption(label=item_name, value=item_name)]
 
 def build_others_options(fixed_item_name: str | None) -> list[discord.SelectOption]:
@@ -97,10 +101,10 @@ def build_others_options(fixed_item_name: str | None) -> list[discord.SelectOpti
             continue
         if variants:
             for v in variants:
-                options.append(discord.SelectOption(label=f"{item} — {v}", value=f"{item} — {v}"))
+                options.append(discord.SelectOption(label=f"{v} {item}", value=f"{v} {item}"))
         else:
             options.append(discord.SelectOption(label=item, value=item))
-    return options
+    return options[:25]
 
 def build_addon_options() -> list[discord.SelectOption]:
     return [discord.SelectOption(label=a, value=a) for a in ADDONS]
@@ -182,6 +186,45 @@ class ModalForSyabhale(discord.ui.Modal, title="Syabhale — How many?"):
 
 
 # ---------------------------------------------------------------------------
+# MODAL — Sausage count (Chicken & Buff)
+# ---------------------------------------------------------------------------
+
+class ModalForSausages(discord.ui.Modal, title="Sausages — How many?"):
+
+    def __init__(self, view: "KhajaTimeView", item_name: str):
+        super().__init__()
+        self.khaja_view = view
+        self.item_name = item_name
+
+    sausage_count = discord.ui.TextInput(
+        label="Number of Sausages",
+        placeholder="e.g. 2",
+        min_length=1,
+        max_length=2,
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = self.sausage_count.value.strip()
+        if not raw.isdigit() or int(raw) < 1:
+            await interaction.response.send_message(
+                "Please enter a valid number (e.g. 1, 2, 3).", ephemeral=True
+            )
+            return
+
+        count = int(raw)
+        label = f"{self.item_name} x{count}"
+
+        if interaction.user.id not in self.khaja_view.votes:
+            self.khaja_view.votes[interaction.user.id] = {}
+
+        self.khaja_view.votes[interaction.user.id]["others"] = label
+        logger.info(f"{interaction.user.name} selected others: {label}")
+        await interaction.response.edit_message(
+            embed=self.khaja_view.create_embed(), view=self.khaja_view
+        )
+
+
+# ---------------------------------------------------------------------------
 # SELECT MENUS
 # ---------------------------------------------------------------------------
 
@@ -232,6 +275,9 @@ class OthersSelect(discord.ui.Select):
         if chosen == "Syabhale":
             await interaction.response.send_modal(ModalForSyabhale(view))
             return
+        if chosen in ("Chicken Sausage", "Buff Sausage"):
+            await interaction.response.send_modal(ModalForSausages(view, chosen))
+            return
 
         view.votes[interaction.user.id]["others"] = chosen
         logger.info(f"{interaction.user.name} selected others: {chosen}")
@@ -260,13 +306,23 @@ class AddonsSelect(discord.ui.Select):
 
 
 # ---------------------------------------------------------------------------
+# WHATSAPP VIEW
+# ---------------------------------------------------------------------------
+
+class WhatsappView(discord.ui.View):
+    def __init__(self, url):
+        super().__init__()
+        self.add_item(discord.ui.Button(label="Whatsapp it", url=url))
+
+
+# ---------------------------------------------------------------------------
 # MAIN VIEW
 # ---------------------------------------------------------------------------
 
 class KhajaTimeView(discord.ui.View):
 
     def __init__(self, initiator, channel_members, weekday: int):
-        super().__init__(timeout=900)
+        super().__init__(timeout=60)
         self.initiator = initiator
         self.channel_members = channel_members
         self.message = None
@@ -280,17 +336,6 @@ class KhajaTimeView(discord.ui.View):
             self.add_item(FixedItemSelect(fixed_item))
         self.add_item(OthersSelect(fixed_item))
         self.add_item(AddonsSelect())
-
-    # -- Submit button -------------------------------------------------------
-
-    @discord.ui.button(label="Submit Order", style=discord.ButtonStyle.success, row=3)
-    async def submit_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        uid = interaction.user.id
-        if uid not in self.votes:
-            self.votes[uid] = {}
-        self.votes[uid]["not_today"] = False
-        logger.info(f"{interaction.user.name} submitted order")
-        await interaction.response.edit_message(embed=self.create_embed(), view=self)
 
     # -- Not Today button ----------------------------------------------------
 
@@ -341,7 +386,7 @@ class KhajaTimeView(discord.ui.View):
         ]
         embed.add_field(name="⏳ Pending", value=str(len(pending)), inline=True)
 
-        embed.set_footer(text="Use the menus below to place your order, then hit Submit.")
+        embed.set_footer(text="Use the menus below to place your order.")
         return embed
 
     # -- Summary -------------------------------------------------------------
@@ -394,37 +439,54 @@ class KhajaTimeView(discord.ui.View):
                 order_parts.append("+ " + ", ".join(addons))
             per_person_lines.append(f"**{member.name}** — {' | '.join(order_parts)}")
 
-        # Build message
-        msg = f"**✅ Poll Summary — {day_name} <t:{now}:D>**\n"
-        msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-
-        # Aggregate
-        msg += "\n📊 **ORDER AGGREGATE**\n"
+        # --- Aggregate text (WhatsApp) ---
+        aggregate_text = "Orders:\n"
         if item_counts:
             for item, count in item_counts.items():
-                msg += f"  {item}: **{count}**\n"
+                aggregate_text += f"{item}: {count}\n"
         else:
-            msg += "  (no orders)\n"
+            aggregate_text += "(no orders)\n"
 
         if addon_counts:
-            msg += "\n➕ **Add-ons:**\n"
+            aggregate_text += "\nExtras:\n"
             for addon, count in addon_counts.items():
-                msg += f"  {addon}: **{count}**\n"
+                aggregate_text += f"{addon}: {count}\n"
 
-        if not_today_members:
-            msg += f"\n🙅 **Not Today ({len(not_today_members)}):** {', '.join(not_today_members)}\n"
+        # --- Embed (Discord markdown) ---
+        embed_desc = "📊 **ORDER AGGREGATE**\n"
+        if item_counts:
+            for item, count in item_counts.items():
+                embed_desc += f"  {item}: **{count}**\n"
+        else:
+            embed_desc += "  (no orders)\n"
+
+        if addon_counts:
+            embed_desc += "\n➕ **Extra:**\n"
+            for addon, count in addon_counts.items():
+                embed_desc += f"  {addon}: **{count}**\n"
 
         if did_not_vote:
-            msg += f"\n❌ **No Vote ({len(did_not_vote)}):** {', '.join(did_not_vote)}\n"
+            embed_desc += f"\n❌ **No Vote ({len(did_not_vote)}):** {', '.join(did_not_vote)}\n"
 
-        # Per person
-        msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        msg += "👤 **PER PERSON**\n"
+        embed = discord.Embed(
+            title=f"📊 Order Aggregate — {day_name} <t:{now}:D>",
+            description=embed_desc,
+            color=discord.Color.green()
+        )
+
+        # --- Plain text per-person message ---
+        plain_msg = f"**✅ Poll Summary — {day_name} <t:{now}:D>**\n"
+        plain_msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        plain_msg += "👤 **PER PERSON**\n"
         for line in per_person_lines:
-            msg += f"  {line}\n"
+            plain_msg += f"  {line}\n"
 
-        msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ END\n"
-        return msg
+        if not_today_members:
+            plain_msg += f"\n🙅 **Not Today ({len(not_today_members)}):** {', '.join(not_today_members)}\n"
+
+        plain_msg += "\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ END\n"
+
+        return plain_msg, aggregate_text, embed
 
     # -- Timeout -------------------------------------------------------------
 
@@ -434,13 +496,16 @@ class KhajaTimeView(discord.ui.View):
 
         bot.is_poll_active = False
 
-        summary = self.get_poll_summary()
+        plain_msg, aggregate_text, embed = self.get_poll_summary()
 
         logger.info(f"Poll closed — initiated by {self.initiator.name} | closed at {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        logger.info(f"Poll summary:\n{summary}")
+        logger.info(f"Poll summary:\n{aggregate_text}")
 
         try:
-            await self.initiator.send(summary)
+            whatsapp_url = send_message(aggregate_text)
+            view = WhatsappView(whatsapp_url)
+            await self.initiator.send(plain_msg)
+            await self.initiator.send(embed=embed, view=view)
         except discord.HTTPException as e:
             logger.error(f"Failed to DM summary to {self.initiator.name}: {e}")
 
@@ -481,7 +546,7 @@ async def khaja(interaction: discord.Interaction):
     view.message = await interaction.original_response()
 
     try:
-        await asyncio.sleep(300)
+        await asyncio.sleep(30)
 
         members_not_voted = [
             m for m in interaction.channel.members
@@ -496,7 +561,7 @@ async def khaja(interaction: discord.Interaction):
                     f"🔔 **Lunch Reminder!** Quick {mentions}, please place your order!"
                 )
                 logger.info(f"Reminder sent to: {names}")
-                await asyncio.sleep(150)
+                await asyncio.sleep(15)
                 await reminder_msg.delete()
                 logger.info("Reminder message deleted")
             except discord.HTTPException as e:
