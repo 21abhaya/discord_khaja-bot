@@ -322,7 +322,7 @@ class WhatsappView(discord.ui.View):
 class KhajaTimeView(discord.ui.View):
 
     def __init__(self, initiator, channel_members, weekday: int):
-        super().__init__(timeout=60)
+        super().__init__(timeout=900)
         self.initiator = initiator
         self.channel_members = channel_members
         self.message = None
@@ -546,7 +546,7 @@ async def khaja(interaction: discord.Interaction):
     view.message = await interaction.original_response()
 
     try:
-        await asyncio.sleep(30)
+        await asyncio.sleep(300)
 
         members_not_voted = [
             m for m in interaction.channel.members
@@ -561,7 +561,7 @@ async def khaja(interaction: discord.Interaction):
                     f"🔔 **Lunch Reminder!** Quick {mentions}, please place your order!"
                 )
                 logger.info(f"Reminder sent to: {names}")
-                await asyncio.sleep(15)
+                await asyncio.sleep(150)
                 await reminder_msg.delete()
                 logger.info("Reminder message deleted")
             except discord.HTTPException as e:
