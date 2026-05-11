@@ -113,7 +113,7 @@ def build_addon_options() -> list[discord.SelectOption]:
 # MODAL — Boiled Eggs count
 # ---------------------------------------------------------------------------
 
-class ModalForBoiledEggs(discord.ui.Modal, title="Boiled Eggs — How many?"):
+class ModalForBoiledEggs(discord.ui.Modal, title="arey o kaaliya, kitne andey khaoge?"):
 
     def __init__(self, view: "KhajaTimeView"):
         super().__init__()
@@ -135,7 +135,7 @@ class ModalForBoiledEggs(discord.ui.Modal, title="Boiled Eggs — How many?"):
             return
 
         count = int(raw)
-        label = f"Boiled Eggs x{count}"
+        label = f"{count} Boiled Eggs"
 
         if interaction.user.id not in self.khaja_view.votes:
             self.khaja_view.votes[interaction.user.id] = {}
@@ -145,13 +145,14 @@ class ModalForBoiledEggs(discord.ui.Modal, title="Boiled Eggs — How many?"):
         await interaction.response.edit_message(
             embed=self.khaja_view.create_embed(), view=self.khaja_view
         )
+        await interaction.followup.send("✅ Order placed!", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
 # MODAL — Syabhale count
 # ---------------------------------------------------------------------------
 
-class ModalForSyabhale(discord.ui.Modal, title="Syabhale — How many?"):
+class ModalForSyabhale(discord.ui.Modal, title="Kati ota Syabhale havs hanne ta saathi?"):
 
     def __init__(self, view: "KhajaTimeView"):
         super().__init__()
@@ -173,7 +174,7 @@ class ModalForSyabhale(discord.ui.Modal, title="Syabhale — How many?"):
             return
 
         count = int(raw)
-        label = f"Syabhale x{count}"
+        label = f"{count} Syabhale"
 
         if interaction.user.id not in self.khaja_view.votes:
             self.khaja_view.votes[interaction.user.id] = {}
@@ -183,13 +184,14 @@ class ModalForSyabhale(discord.ui.Modal, title="Syabhale — How many?"):
         await interaction.response.edit_message(
             embed=self.khaja_view.create_embed(), view=self.khaja_view
         )
+        await interaction.followup.send("✅ Order placed!", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
 # MODAL — Sausage count (Chicken & Buff)
 # ---------------------------------------------------------------------------
 
-class ModalForSausages(discord.ui.Modal, title="Sausages — How many?"):
+class ModalForSausages(discord.ui.Modal, title="arey o kaalia, kitne saussages khaoge?"):
 
     def __init__(self, view: "KhajaTimeView", item_name: str):
         super().__init__()
@@ -212,7 +214,7 @@ class ModalForSausages(discord.ui.Modal, title="Sausages — How many?"):
             return
 
         count = int(raw)
-        label = f"{self.item_name} x{count}"
+        label = f"{count} {self.item_name}"
 
         if interaction.user.id not in self.khaja_view.votes:
             self.khaja_view.votes[interaction.user.id] = {}
@@ -222,6 +224,7 @@ class ModalForSausages(discord.ui.Modal, title="Sausages — How many?"):
         await interaction.response.edit_message(
             embed=self.khaja_view.create_embed(), view=self.khaja_view
         )
+        await interaction.followup.send("✅ Order placed!", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -248,6 +251,7 @@ class FixedItemSelect(discord.ui.Select):
         view.votes[interaction.user.id]["fixed"] = chosen
         logger.info(f"{interaction.user.name} selected fixed: {chosen}")
         await interaction.response.edit_message(embed=view.create_embed(), view=view)
+        await interaction.followup.send("✅ Order placed!", ephemeral=True)
 
 
 class OthersSelect(discord.ui.Select):
@@ -282,6 +286,7 @@ class OthersSelect(discord.ui.Select):
         view.votes[interaction.user.id]["others"] = chosen
         logger.info(f"{interaction.user.name} selected others: {chosen}")
         await interaction.response.edit_message(embed=view.create_embed(), view=view)
+        await interaction.followup.send("✅ Order placed!", ephemeral=True)
 
 
 class AddonsSelect(discord.ui.Select):
@@ -303,6 +308,7 @@ class AddonsSelect(discord.ui.Select):
         view.votes[interaction.user.id]["addons"] = self.values
         logger.info(f"{interaction.user.name} selected addons: {list(self.values)}")
         await interaction.response.edit_message(embed=view.create_embed(), view=view)
+        await interaction.followup.send("✅ Add-ons updated!", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +328,7 @@ class WhatsappView(discord.ui.View):
 class KhajaTimeView(discord.ui.View):
 
     def __init__(self, initiator, channel_members, weekday: int):
-        super().__init__(timeout=900)
+        super().__init__(timeout=60)
         self.initiator = initiator
         self.channel_members = channel_members
         self.message = None
@@ -344,6 +350,7 @@ class KhajaTimeView(discord.ui.View):
         self.votes[interaction.user.id] = {"not_today": True, "fixed": None, "others": None, "addons": []}
         logger.info(f"{interaction.user.name} — Not Today")
         await interaction.response.edit_message(embed=self.create_embed(), view=self)
+        await interaction.followup.send("👍 Got it, not joining today!", ephemeral=True)
 
     # -- Embed ---------------------------------------------------------------
 
@@ -352,7 +359,7 @@ class KhajaTimeView(discord.ui.View):
         day_name = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][self.weekday]
 
         embed = discord.Embed(
-            title=f"🍽️ Khaja Poll — {day_name} <t:{now}:D>",
+            title=f"🍽️ {day_name} <t:{now}:D>",
             color=discord.Color.blue(),
         )
 
@@ -469,7 +476,7 @@ class KhajaTimeView(discord.ui.View):
             embed_desc += f"\n❌ **No Vote ({len(did_not_vote)}):** {', '.join(did_not_vote)}\n"
 
         embed = discord.Embed(
-            title=f"📊 Orders — {day_name} <t:{now}:D>",
+            title=f"📊 {day_name} <t:{now}:D>",
             description=embed_desc,
             color=discord.Color.green()
         )
@@ -546,7 +553,7 @@ async def khaja(interaction: discord.Interaction):
     view.message = await interaction.original_response()
 
     try:
-        await asyncio.sleep(300)
+        await asyncio.sleep(30)
 
         members_not_voted = [
             m for m in interaction.channel.members
@@ -561,7 +568,7 @@ async def khaja(interaction: discord.Interaction):
                     f"🔔 **Lunch Reminder!** Quick {mentions}, please place your order!"
                 )
                 logger.info(f"Reminder sent to: {names}")
-                await asyncio.sleep(150)
+                await asyncio.sleep(15)
                 await reminder_msg.delete()
                 logger.info("Reminder message deleted")
             except discord.HTTPException as e:

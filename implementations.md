@@ -579,3 +579,23 @@ if chosen in ("Chicken Sausage", "Buff Sausage"):
 ```
 
 One modal class handles both variants — the `item_name` parameter carries the distinction.
+
+---
+
+## v2.7.0 — Ephemeral Confirmation on Selection — 2026-05-09
+
+### [ADDED] `interaction.followup.send(..., ephemeral=True)` after every submission point
+
+After every interaction that records a vote, an ephemeral followup message is sent to the user as a confirmation. Since `interaction.response` is already consumed by `edit_message`, the followup is sent via `interaction.followup.send(...)` which is allowed after the primary response.
+
+| Trigger | Message |
+|---------|---------|
+| `FixedItemSelect` selection | `✅ Order placed!` |
+| `OthersSelect` selection (non-modal) | `✅ Order placed!` |
+| `AddonsSelect` selection | `✅ Add-ons updated!` |
+| `ModalForBoiledEggs` submit | `✅ Order placed!` |
+| `ModalForSyabhale` submit | `✅ Order placed!` |
+| `ModalForSausages` submit | `✅ Order placed!` |
+| `Not Today` button | `👍 Got it, not joining today!` |
+
+The message is only visible to the user who triggered the interaction and disappears when dismissed.
