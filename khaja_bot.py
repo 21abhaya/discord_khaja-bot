@@ -17,7 +17,7 @@ token = os.getenv('DISCORD_TOKEN')
 # LOGGER SETUP
 # ---------------------------------------------------------------------------
 
-LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(message)s"
+LOG_FORMAT = "%(asctime)s | %(levelname)s | %(message)s"
 LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 logger = logging.getLogger("khaja_bot")
