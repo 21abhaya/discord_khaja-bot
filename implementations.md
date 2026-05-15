@@ -599,3 +599,23 @@ After every interaction that records a vote, an ephemeral followup message is se
 | `Not Today` button | `👍 Got it, not joining today!` |
 
 The message is only visible to the user who triggered the interaction and disappears when dismissed.
+
+---
+
+## v2.8.0 — Ephemeral Confirmation Shows Item Name — 2026-05-15
+
+### [CHANGED] Ephemeral followup messages now include the item name
+
+All `✅ Order placed!` confirmations now display the specific item ordered, giving users immediate confirmation of exactly what was recorded.
+
+| Trigger | Message |
+|---------|---------|
+| `FixedItemSelect` selection | `✅ Order placed: {chosen}` |
+| `OthersSelect` selection (non-modal) | `✅ Order placed: {chosen}` |
+| `AddonsSelect` selection | `✅ Order placed: {', '.join(self.values)}` |
+| `ModalForBoiledEggs` submit | `✅ Order placed: {label}` e.g. `Boiled Eggs x2` |
+| `ModalForSyabhale` submit | `✅ Order placed: {label}` e.g. `Syabhale x3` |
+| `ModalForSausages` submit | `✅ Order placed: {label}` e.g. `Chicken Sausage x2` |
+| `Not Today` button | `👍 Got it, not joining today!` (unchanged) |
+
+No structural changes — item names and labels were already in scope at each followup call.
