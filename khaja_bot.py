@@ -72,7 +72,7 @@ ALL_ITEMS = {
     "Chana": [],
     "Chicken Sausage": [],  # special — triggers modal for count
     "Buff Sausage": [],     # special — triggers modal for count
-    "Pangra-Chiura": [],
+    "Sukuti-Chiura": [],
 }
 
 # Fixed item per weekday (0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri)
@@ -145,7 +145,7 @@ class ModalForBoiledEggs(discord.ui.Modal, title="arey o kaaliya, kitne andey kh
         await interaction.response.edit_message(
             embed=self.khaja_view.create_embed(), view=self.khaja_view
         )
-        await interaction.followup.send(f"✅ Order placed: {label}", ephemeral=True)
+        await interaction.followup.send(f"✅ Ordered items: {label}", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +184,7 @@ class ModalForSyabhale(discord.ui.Modal, title="Kati ota Syabhale havs hanne ta 
         await interaction.response.edit_message(
             embed=self.khaja_view.create_embed(), view=self.khaja_view
         )
-        await interaction.followup.send(f"✅ Order placed: {label}", ephemeral=True)
+        await interaction.followup.send(f"✅ Ordered items: {label}", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +224,7 @@ class ModalForSausages(discord.ui.Modal, title="arey o kaalia, kitne saussages k
         await interaction.response.edit_message(
             embed=self.khaja_view.create_embed(), view=self.khaja_view
         )
-        await interaction.followup.send(f"✅ Order placed: {label}", ephemeral=True)
+        await interaction.followup.send(f"✅ Ordered items: {label}", ephemeral=True)
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +251,7 @@ class FixedItemSelect(discord.ui.Select):
         view.votes[interaction.user.id]["fixed"] = chosen
         logger.info(f"{interaction.user.name} selected fixed: {chosen}")
         await interaction.response.edit_message(embed=view.create_embed(), view=view)
-        await interaction.followup.send(f"✅ Order placed: {chosen}", ephemeral=True)
+        await interaction.followup.send(f"✅ Ordered items: {chosen}", ephemeral=True)
 
 
 class OthersSelect(discord.ui.Select):
@@ -286,7 +286,7 @@ class OthersSelect(discord.ui.Select):
         view.votes[interaction.user.id]["others"] = chosen
         logger.info(f"{interaction.user.name} selected others: {chosen}")
         await interaction.response.edit_message(embed=view.create_embed(), view=view)
-        await interaction.followup.send(f"✅ Order placed: {chosen}", ephemeral=True)
+        await interaction.followup.send(f"✅ Ordered items: {chosen}", ephemeral=True)
 
 
 class AddonsSelect(discord.ui.Select):
