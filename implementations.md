@@ -619,3 +619,13 @@ All `✅ Order placed!` confirmations now display the specific item ordered, giv
 | `Not Today` button | `👍 Got it, not joining today!` (unchanged) |
 
 No structural changes — item names and labels were already in scope at each followup call.
+
+---
+
+## v2.9.0 — WhatsApp Number Validation — 2026-08-19
+
+### [ADDED] `generate_whatsapp_link()` environment validation
+
+`generate_whatsapp_link()` now checks whether `WHATSAPP_NUMBER` was loaded from the environment before generating a link. If the variable is missing or empty, it raises a `ValueError` with instructions to add the number to `.env`.
+
+This prevents the bot from generating an invalid URL such as `https://wa.me/None?...` and makes the missing configuration clear when the WhatsApp summary link is requested.

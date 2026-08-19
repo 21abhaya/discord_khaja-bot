@@ -9,10 +9,12 @@ number = os.getenv('WHATSAPP_NUMBER')
 
 
 def generate_whatsapp_link(message: str) -> str:
-    
     """
     Generate a Whatsapp deep link with the message passed as argument
     """
+
+    if not number:
+        raise ValueError("WHATSAPP_NUMBER is not set. Add it to your .env file.")
     
     encoded = quote(message)
     url = f"https://wa.me/{number}?text={encoded}"
